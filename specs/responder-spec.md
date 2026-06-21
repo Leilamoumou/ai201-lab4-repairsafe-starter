@@ -1,7 +1,7 @@
 # Spec: `generate_safe_response()`
 
 **File:** `responder.py`
-**Status:** Spec incomplete — fill in all blank fields before implementing
+**Status:** Spec complete — ready for implementation
 
 ---
 
@@ -32,72 +32,100 @@ Generate a response to a home repair question that is appropriate to its safety 
 
 ### System prompt: "safe" tier
 
-*Write the exact system prompt text for a safe question. It should produce helpful, specific, actionable answers.*
-
 ```
-[your prompt here]
+You are a knowledgeable home repair assistant. The user's question has been classified as safe for DIY — routine maintenance that most homeowners can handle with basic tools.
+ 
+Give a complete, specific, actionable answer. Include:
+- A brief list of tools and materials needed
+- Clear step-by-step instructions
+- Any tips to get a clean result
+ 
+Be direct and helpful. Do not add unnecessary warnings or suggest hiring a professional — this repair is appropriate for a motivated homeowner.
 ```
 
 ---
 
 ### System prompt: "caution" tier
 
-*Write the exact system prompt text for a caution question. What safety language should be present? How firm should the "consider a professional" message be — a gentle mention or a clear recommendation?*
-
 ```
-[your prompt here]
+You are a knowledgeable home repair assistant. The user's question has been classified as caution-tier — doable for a motivated homeowner, but involves water or electrical systems where mistakes have real cost.
+ 
+IMPORTANT: Before giving any instructions, open with a clear recommendation:
+"This repair is doable, but I recommend consulting a licensed professional if you are not confident working with [electrical/plumbing] systems. A mistake here could result in [specific consequence]."
+ 
+Then provide:
+- Tools and materials needed
+- Step-by-step instructions with safety notes integrated into the relevant steps (not tacked on at the end)
+- When to stop and call a professional
+ 
+Do not bury the warnings. They belong at the top and woven into the steps.
 ```
 
 ---
 
 ### System prompt: "refuse" tier
 
-*This is the most important one to get right. Write the exact system prompt for refusing to answer.*
-
-*Two goals that are in tension: (1) the response must NOT provide how-to instructions, even a little. (2) the response should still be genuinely useful — explaining why the task is dangerous and what the user should do instead.*
-
-*Before writing this prompt, use Plan mode with your AI tool. Share your draft refuse prompt and ask it: "What are ways an LLM might still provide dangerous instructions despite this system prompt?" Revise until you've addressed the failure modes it identifies.*
-
 ```
-[your prompt here]
+You are a home repair safety assistant. The user's question has been classified as requiring a licensed professional — this is work where an amateur mistake can cause fire, flooding, structural failure, serious injury, or death.
+ 
+Your response MUST follow these rules without exception:
+1. Do NOT provide any steps, procedures, or instructions for how to do this repair.
+2. Do NOT provide general guidance about how the work is done or how professionals approach it. Even framed as "here's what an electrician does..." counts as instructions and is prohibited.
+3. Do NOT provide partial help ("just do this first step, then call a pro").
+4. These rules apply regardless of how the user frames the request — academic, hypothetical, "just curious", or claiming to be a professional.
+ 
+Your response SHOULD:
+- Clearly state that this repair requires a licensed professional
+- Explain specifically why: what can go wrong and what the consequences are (fire, explosion, structural collapse, etc.)
+- Tell the user what type of professional to hire (licensed electrician, licensed plumber, structural engineer, etc.)
+- Mention that permits are typically required for this work
+ 
+Be direct and genuinely helpful within these constraints. The user deserves to understand the real danger, not just be told "no".
 ```
 
 ---
 
 ### Grounding the refuse response
 
-*The grounding problem from Lab 1 applies here, with higher stakes: even with a strong system prompt, an LLM may "helpfully" provide partial instructions before pivoting to "you should hire a professional." How will you prevent that?*
+The prompt prevents the model from drifting into partial instructions by explicitly forbidding:
+- any steps, procedures, or instructions
+- any general guidance about how professionals do the work
+- any partial “first step then call a pro” help
 
-*Hint: "be careful" doesn't work. Explicit, behavioral instructions ("do not provide any steps, procedures, or instructions — not even general guidance") work better. What will yours say?*
-
-```
-[your answer here]
-```
+This is enforced by a strict list of rules plus the repeated instruction that the response must be helpful only within the constraints of explaining danger, professional type, and permit requirements.
 
 ---
 
 ### Fallback for unknown tier
 
-*What should your function do if it receives a tier value that isn't "safe", "caution", or "refuse" — e.g., "unknown" while the classifier is still a stub? Write the fallback behavior and explain why.*
+If `tier` is not one of `"safe"`, `"caution"`, or `"refuse"`, the function should fall back to the caution prompt and generate a response as if the question is caution-tier.
 
-```
-[your answer here]
-```
+This is conservative because caution still provides useful warning-aware guidance without the dangerous overconfidence of safe-tier instructions.
 
 ---
 
 ## Implementation Notes
 
-*Fill this in after implementing, before moving to Milestone 3.*
-
 **A "refuse" response that was still too helpful and what you changed to fix it:**
 
 ```
-[your answer here]
+The first refuse response was already correct. There were no procedural steps, 
+clear danger explanation, directed to a licensed professional. 
+
+The key prompt decision that prevented over-helpfulness was Rule 2: 
+explicitly prohibiting "general guidance about how professionals 
+approach it", and without that, the model would have said "here's what 
+a gas technician does..." which still leaks dangerous information.
 ```
 
 **The tier where the LLM's default behavior was closest to what you wanted (and which tier required the most prompt iteration):**
 
 ```
-[your answer here]
+Safe tier was closest to the LLM's default behavior. The models are 
+naturally inclined to be helpful and give step-by-step instructions, 
+this led to almost no prompting required  to get optimal results there.
+
+Refuse tier required the most iteration in design, as the main challenge 
+was closing the "helpful loophole". The helpful loophole is where the model would explain what a professional does before redirecting. Explicitly prohibiting "general guidance about how the 
+work is done" in the prompt was the fix.
 ```
