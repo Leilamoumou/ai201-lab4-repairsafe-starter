@@ -1,7 +1,7 @@
 # Spec: `classify_safety_tier()`
 
 **File:** `safety.py`
-**Status:** Spec incomplete — fill in all blank fields before implementing
+**Status:** Spec complete — ready for implementation
 
 ---
 
@@ -30,96 +30,99 @@ Determine whether a home repair question is safe to answer directly, requires a 
 
 ## Design Decisions
 
-*Complete the fields below before writing any code. Use your AI tool in Plan or Ask mode to help you reason through what belongs here — but the decisions are yours.*
-
----
-
 ### Tier definitions
-
-*Write a one-sentence definition for each tier that is precise enough to use as part of your classification prompt. Vague definitions produce inconsistent classifications.*
 
 **safe:**
 ```
-[your definition here]
+Routine maintenance or repair with basic tools where the worst-case outcome is cosmetic damage or a broken fixture — no risk of fire, flooding, injury, or structural failure.
 ```
 
 **caution:**
 ```
-[your definition here]
+Repairs involving water or electrical systems that a motivated homeowner can complete, but where mistakes have real cost — bad wiring trips a breaker, a bad connection causes a leak — not catastrophic or life-threatening.
 ```
 
 **refuse:**
 ```
-[your definition here]
+Any repair where an amateur mistake can cause fire, flooding, structural failure, serious injury, or death, or where local codes require a licensed professional and a permit.
 ```
 
 ---
 
 ### Classification approach
 
-*How will the LLM classify the question? Will you give it just the tier definitions, or also examples (few-shot)? Will you ask it to reason step-by-step before naming the tier, or output the tier directly?*
+Definitions + chain-of-thought reasoning before naming the tier. The LLM should reason about what the repair actually requires (not how the user frames it), then apply the caution/refuse boundary rule and output the tier.
 
-*Consider: what happens when a question is genuinely ambiguous — e.g., "can I replace my own outlets?" Which tier should that land in, and how does your approach handle questions at the boundary?*
-
-```
-[your answer here]
-```
+This approach handles boundary cases more reliably by forcing the model to commit to reasoning first, instead of guessing a label directly.
 
 ---
 
 ### Output format
 
-*How will the LLM communicate the tier and reason back to you? Describe the exact text format you'll ask it to use, so you can parse it reliably.*
-
-*The format you used in Lab 3 (`Label: X / Reasoning: Y`) is a reasonable starting point, but you're not required to use it. Whatever you choose, you'll need to parse it in code — so consider how much variation the LLM might introduce and how you'll handle that.*
+The model should return exactly two lines in this format:
 
 ```
-[your answer here]
+Tier: safe|caution|refuse
+Reason: one sentence
 ```
+
+Parsing should be simple and strict: split on newlines, find the line starting with `Tier:`, extract the word after the colon, lowercase and strip it, then validate against `VALID_TIERS`.
 
 ---
 
 ### Prompt structure
 
-*Write the actual prompt you'll use — both the system message and the user message. Don't describe it — write it. Vague prompt descriptions produce vague prompts, which produce inconsistent classifications.*
-
 **System message:**
 ```
-[your prompt here]
+You are a home repair safety classifier. Your job is to classify home repair questions into one of three safety tiers.
+
+Tier definitions:
+- safe: Routine maintenance or repair with basic tools where the worst-case outcome is cosmetic damage or a broken fixture — no risk of fire, flooding, injury, or structural failure.
+- caution: Repairs involving water or electrical systems that a motivated homeowner can complete, but where mistakes have real cost — bad wiring trips a breaker, a bad connection causes a leak — not catastrophic or life-threatening.
+- refuse: Any repair where an amateur mistake can cause fire, flooding, structural failure, serious injury, or death, or where local codes require a licensed professional and a permit.
+
+Critical boundary rule:
+If the repair goes wrong and the realistic worst case is fire, flooding, structural failure, injury, or death → refuse. If the worst case is a tripped breaker, a leaky fitting, or a broken fixture → caution.
+
+Respond in exactly this format with no other text:
+Tier: [safe|caution|refuse]
+Reason: [one sentence explaining why]
 ```
 
 **User message:**
 ```
-[your prompt here]
+Classify this home repair question:
+
+First, think through what this repair actually requires (not how the user framed it).
+Then apply the caution/refuse boundary rule. Then output your answer.
+
+Question: {question}
 ```
 
 ---
 
 ### Caution/refuse boundary
 
-*The most consequential classification decision is whether a question lands in "caution" or "refuse." Write down your rule for this boundary — one sentence. Then give two examples of questions that sit close to the line and explain which side they fall on and why.*
+If the repair goes wrong and the realistic worst case is fire, flooding, structural failure, injury, or death — classify it as `refuse`; if the worst case is a tripped breaker, a leaky fitting, or a broken fixture — classify it as `caution`.
 
-```
-[your rule and examples here]
-```
+Example boundary cases:
+- `Can I add a new circuit to my garage?` → `refuse`, because adding new electrical work creates realistic risk of shock, fire, and usually requires licensed/permit-backed work.
+- `Can I replace a dead outlet in my kitchen?` → `caution`, because replacing an existing outlet is usually homeowner-level and a mistake is more likely to trip a breaker than cause catastrophe.
 
 ---
 
 ### Fallback behavior
 
-*What does your function return if the LLM response can't be parsed — e.g., if it produces free-form prose instead of your expected format? What happens when tier validation against `VALID_TIERS` fails?*
-
-*Note: failing open (returning "safe" as a fallback) is more dangerous than failing closed (returning "caution"). Which makes more sense here, and why?*
-
+If the LLM response cannot be parsed or the extracted tier is not one of `VALID_TIERS`, return:
 ```
-[your answer here]
+{"tier": "caution", "reason": "Classification unavailable; defaulting to caution."}
 ```
+
+This is conservative: failing open to `safe` is dangerous because it could lead to unsafe DIY instructions, while `caution` avoids dangerous advice and still provides a useful middle ground.
 
 ---
 
 ## Implementation Notes
-
-*Fill this in after implementing, before moving to Milestone 2.*
 
 **One classification that surprised you — question, tier you expected, tier it returned, and why:**
 
