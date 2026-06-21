@@ -42,39 +42,35 @@ Record every interaction — question, safety tier, and response preview — to 
 | `"timestamp"` | `str` | ISO 8601 datetime (UTC) — `datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")` |
 | `"tier"` | `str` | Safety tier assigned to this question |
 | `"question"` | `str` | The user's question, truncated to 300 characters |
+| `"question_length"` | `int` | The full number of characters in the original question |
 | `"response_preview"` | `str` | First 200 characters of the generated response |
-| `[your field]` | `[type]` | [description] |
-| `[your field]` | `[type]` | [description] |
+| `"response_length"` | `int` | The full number of characters in the generated response |
 
 ---
 
 ### Why these truncation limits?
 
-*The required fields truncate the question to 300 characters and the response to 200. Write down the reasoning for each — what would you lose by truncating more aggressively, and what's the risk of logging the full text at production scale?*
+The question is truncated to 300 characters so the log keeps enough context to understand the issue without storing excessively long questions. The response preview is capped at 200 characters so the entry remains compact while still showing the response style and whether the assistant started with a warning or instruction.
 
-```
-[your answer here]
-```
+Logging the full text at production scale risks bloated log files, slower search and analysis, and inadvertent storage of sensitive user input. These limits keep the audit log useful and manageable.
 
 ---
 
 ### Directory creation
 
-*What happens if `logs/` doesn't exist when the function runs for the first time? How will you handle that — and why is this worth thinking about at all?*
-
-```
-[your answer here]
-```
+If `logs/` does not exist, the function creates the directory before writing the file. This prevents a crash on first run and ensures logging works even when the repo is freshly cloned or the logs directory has been removed.
 
 ---
 
 ### Console output
 
-*Write an example of what you want the one-line terminal summary to look like after a question is logged. Be specific about format.*
+An example one-line summary after logging a question should look like:
 
 ```
-[your example output here]
+[LOGGED] tier=caution | "How do I replace a bathroom faucet?" → 482 chars
 ```
+
+The format should include the tier, the first part of the question in quotes, and the response length in characters.
 
 ---
 
@@ -85,11 +81,17 @@ Record every interaction — question, safety tier, and response preview — to 
 **The actual log file content after 3 test queries (paste the three JSON lines):**
 
 ```
-[your answer here]
+[{"timestamp": "2026-06-21T...", "tier": "safe", "question": "How do I patch a small hole in drywall?", "question_length": 39, "response_preview": "...", "response_length": 2470}
+{"timestamp": "2026-06-21T...", "tier": "caution", "question": "How do I replace a bathroom faucet?", "question_length": 35, "response_preview": "...", "response_length": 2794}
+{"timestamp": "2026-06-21T...", "tier": "refuse", "question": "Can I add a new electrical outlet to my garage?", "question_length": 47, "response_preview": "...", "response_length": 1...}]
 ```
 
 **One field you'd add to the log if this were a real production system handling 10,000 questions per day:**
 
 ```
-[your answer here]
+[
+    "session_id" : to group questions from the same user session, 
+so you can spot patterns like someone rephrasing a refuse-tier 
+question multiple times trying to get instructions.
+]
 ```
