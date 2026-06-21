@@ -127,11 +127,23 @@ This is conservative: failing open to `safe` is dangerous because it could lead 
 **One classification that surprised you — question, tier you expected, tier it returned, and why:**
 
 ```
-[your answer here]
+A classification that surprised me : 
+
+Question: "Can I add a new electrical outlet to my garage?"
+Expected: possibly caution (it's just an outlet...)
+Returned: refuse — correct, because adding new requires opening 
+the panel and running new wire, which is fire-hazard territory.
 ```
 
 **One prompt change you made after seeing the first few outputs, and what it fixed:**
 
 ```
-[your answer here]
+Added explicit "replacing existing vs. adding new" language to the 
+system prompt after recognizing the classifier needed a concrete rule 
+to distinguish component swaps from new electrical infrastructure.
+
+The classifier worked correctly on the first run, and the most important 
+prompt decision was explicitly naming the replacing-vs-adding edge case 
+rather than leaving it implicit in the tier definitions — without that 
+rule, both outlet questions could have landed in caution.
 ```

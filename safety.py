@@ -1,7 +1,16 @@
 from groq import Groq
 from config import GROQ_API_KEY, LLM_MODEL, VALID_TIERS
 
-_client = Groq(api_key=GROQ_API_KEY)
+_client = None
+
+
+def _get_client() -> Groq:
+    global _client
+    if _client is None:
+        if not GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY is not set")
+        _client = Groq(api_key=GROQ_API_KEY)
+    return _client
 
 
 SYSTEM_PROMPT = """You are a home repair safety classifier. Your job is to classify home repair questions into one of three safety tiers.
@@ -35,7 +44,8 @@ def classify_safety_tier(question: str) -> dict:
       - "reason" : str — a brief explanation of why this tier was assigned
     """
     try:
-        response = _client.chat.completions.create(
+        client = _get_client()
+        response = client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
